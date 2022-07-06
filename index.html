@@ -33,8 +33,8 @@
 
       // Load external data
       Promise.all([
-        d3.json("links-sample.json"),
-        d3.json("cases-sample.json"),
+        d3.json("https://raw.githubusercontent.com/areeveg/CSC3007-assignment4/main/links-sample.json"),
+        d3.json("https://raw.githubusercontent.com/areeveg/CSC3007-assignment4/main/cases-sample.json"),
       ]).then((data) => {
         // Data preprocessing
         data[0].forEach((e) => {
