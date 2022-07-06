@@ -212,7 +212,7 @@
         d3.select("#vaccineBtn").on("click", function () {
           var vaccineColor = d3
             .scaleOrdinal()
-            .domain(["no", "partial (1 dose)", "yes (2 doses)"])
+            .domain(["no", "Partial", "Vaccinated"])
             .range(["#ff0000", "#808080", "#00FF00"]);
           node.style("fill", function (d) {
             return vaccineColor(d["vaccinated"]);
