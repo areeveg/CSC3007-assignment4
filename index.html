@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+  <body style="background-color: #D3FDA6">
+    <h1 class="title">COVID-19 Cluster Force Diagram</h1>
+    <div class="btn-grp">
+      <button  id="genderBtn">
+        Gender
+      </button>
+      <button  id="vaccineBtn">
+        Vaccination Status
+      </button>
+    </div>
+  <h2 class="legend">Legend</h2>
+    <svg></svg>
+    <div id="tooltip"></div>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.24.0/d3-legend.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    
+    <script>
+      let width = 1700,
+        height = 700;
+
+      let svg = d3.select("svg").attr("viewBox", "0 0 " + width + " " + height);
+
+      svg
+        .append("g")
+        .attr("class", "covidLegend")
+        .attr("transform", "translate(20,20)");
+
+      // Load external data
+      Promise.all([
+        d3.json("links-sample.json"),
+        d3.json("cases-sample.json"),
+      ]).then((data) => {
+        // Data preprocessing
+        data[0].forEach((e) => {
+          e.source = e.infector;
+          e.target = e.infectee;
+        });
+
+        console.log(data[0]); //links
+        console.log(data[1]); //cases
+
+          svg
+          .append("defs")
+          .selectAll("marker")
+          .data(data[1])
+          .join("marker")
+          .attr("id", (d) => `arrow-${d}`)
+          .attr("viewBox", "0 -5 10 10")
+          .attr("refX", 30)
+          .attr("refY", 0)
+          .attr("markerWidth", 15)
+          .attr("markerHeight", 10)
+          .attr("orient", "auto")
+          .append("path")
+          .attr("fill", "black")
+          .attr("d", "M0,-5L10,0L0,5");
+
+        var colorCode = d3
+          .scaleOrdinal()
+          .domain(["Male", "Female"])
+          .range(["#00008B", "#AA336A"]);
+
+        var covidLegend = d3.legendColor().scale(colorCode);
+        svg.select(".covidLegend").call(covidLegend);
+
+        var tooltip = d3
+          .select("#tooltip")
+          .append("div")
+          .style("position", "absolute")
+          .style("visibility", "hidden")
+          .text("null");
+
+          let linkpath = svg
+          .append("g")
+          .attr("id", "links")
+          .selectAll("path")
+          .data(data[0])
+          .enter()
+          .append("path")
+          .attr(
+            "marker-end",
+            (d) => `url(${new URL(`#arrow-${d.type}`, location)})`
+          )
+          .attr("fill", "none")
+          .attr("stroke", "black");
+
+        let node = svg
+          .append("g")
+          .attr("id", "nodes")
+          .selectAll("circle")
+          .data(data[1])
+          .enter()
+          .append("circle")
+          .attr("r", 25)
+          .attr("class", "dots")
+          .attr("age",  (d) => `${d["age"]}`)
+          .attr("gender", (d) => `${d["gender"]}`)
+          .attr("nationality", (d) => `${d["nationality"]}`)
+          .attr("organization", (d) => `${d["organization"]}`)
+          .attr("vaccinated", (d) => `${d["organization"]}`)
+          .attr("occupation", (d) => `${d["occupation"]}`)
+          .style("fill", (d) => `${colorCode(d["gender"])}`)
+          
+          .on("mouseover", function (d) {
+            let path = d3.select(event.currentTarget);
+              path.style("stroke", "green").style("stroke-width", 5);
+            return tooltip.style("visibility", "visible")
+              .style("background-color", "white")
+              .style("padding", "20px")
+              .style("color", "#000000")
+              .html(
+                "Nationality: " +
+                  this.attributes.nationality.value +
+                  "</br>" +
+                "Age: " +
+                this.attributes.age.value +
+                  "</br>" +
+                  "Gender: " +
+                  this.attributes.gender.value +
+                  "</br>" +
+                  "Occuapation: " +
+                  this.attributes.occupation.value +
+                  "</br>" +
+                  "Organisation: " +
+                  this.attributes.organization.value +
+                  "</br>" +
+                  "Vaccinated: " +
+                  this.attributes.vaccinated.value +
+                  "</br>" 
+
+              )
+              .style("top", event.pageY - 20 + "px")
+              .style("left", event.pageX + 20 + "px")
+            
+          })
+          .on("mouseout", function (d) {
+            let path = d3.select(event.currentTarget);
+            path.style("stroke", "none");
+            return tooltip.style("visibility", "hidden");
+
+          })
+          .call(
+            d3
+              .drag()
+              .on("start", dragstarted)
+              .on("drag", dragged)
+              .on("end", dragended)
+          );
+
+        let simulation = d3
+          .forceSimulation()
+          .nodes(data[1])
+          .force(
+            "x",
+            d3
+              .forceX()
+              .strength(1)
+              .x(width / 2)
+          )
+          .force(
+            "y",
+            d3
+              .forceY()
+              .strength(0.5)
+              .y(height / 2)
+          )
+          .force(
+            "link",
+            d3
+              .forceLink(data[0])
+              .id((d) => d.id)
+              .distance(80)
+              .strength(0.5)
+          )
+          .force("charge", d3.forceManyBody().strength(50))
+          .force("collide", d3.forceCollide().strength(1).radius(40))
+
+          .on("tick", (d) => {
+            node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
+            linkpath.attr(
+              "d",
+              (d) =>
+              "M" +
+                d.source.x + "," +
+                d.source.y + "A" +
+                Math.sqrt((d.target.x - d.source.x) * (d.target.x - d.source.x) + (d.target.y - d.source.y) * (d.target.y - d.source.y)) + "," +Math.sqrt((d.target.x - d.source.x) * (d.target.x - d.source.x) + (d.target.y - d.source.y) * (d.target.y - d.source.y)) + " 0 0,1 " +
+                d.target.x + "," +
+                d.target.y
+            );
+          });
+
+          
+          d3.select("#genderBtn").on("click", function () {
+          var genderColor = d3
+            .scaleOrdinal()
+            .domain(["male", "female"])
+            .range(["#00008B", "#AA336A"]);
+          node.style("fill", function (d) {
+            return genderColor(d["gender"]);
+          });
+
+          var genderLegend = d3.legendColor().scale(genderColor);
+          svg.select(".covidLegend").call(genderLegend);
+        });
+
+        d3.select("#vaccineBtn").on("click", function () {
+          var vaccineColor = d3
+            .scaleOrdinal()
+            .domain(["no", "partial (1 dose)", "yes (2 doses)"])
+            .range(["#ff0000", "#808080", "#00FF00"]);
+          node.style("fill", function (d) {
+            return vaccineColor(d["vaccinated"]);
+          });
+
+          var vaccineLegend = d3.legendColor().scale(vaccineColor);
+          svg.select(".covidLegend").call(vaccineLegend);
+        });
+      });
+
+      
+      function dragstarted(event, d) {
+          if (!event.active) simulation.alphaTarget(0.3).restart();
+          d.fx = d.x;
+          d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+          d.fx = event.x;
+          d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+          if (!event.active) simulation.alphaTarget(0);
+          d.fx = null;
+          d.fy = null;
+        }
+    </script>
+  </body>
+</html>
